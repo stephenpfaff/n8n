@@ -240,11 +240,11 @@ describe('Test Supabase Node', () => {
 
 		jest.spyOn(utils, 'supabaseApiRequest').mockRejectedValueOnce(expectedError);
 
-		expect(node.methods.loadOptions.getTables.call(mockLoadOptionsFunctions)).rejects.toThrow(
-			/The schema must be one of the following: public/,
-		);
-		expect(node.methods.loadOptions.getTables.call(mockLoadOptionsFunctions)).rejects.toThrowError(
-			'NodeApiError',
+		await expect(node.methods.loadOptions.getTables.call(mockLoadOptionsFunctions)).rejects.toThrow(
+			{
+				name: 'NodeApiError',
+				message: expect.stringContaining('The schema must be one of the following: public'),
+			},
 		);
 	});
 });
