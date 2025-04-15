@@ -1,0 +1,77 @@
+{
+  "name": "Simple Python Test",
+  "nodes": [
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "id": "7b66dbad-6d1c-4d67-9b1e-0dce2661cc3c",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "python3 /usr/local/n8n/custom/simple_test.py 2>&1",
+        "executeCommand": "{}"
+      },
+      "id": "59b4739a-35e0-4017-ac1b-f8e75be2e5c6",
+      "name": "Execute Simple Test",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the output and return it\nlet result;\n\ntry {\n  // Check if we have stdout\n  if (items[0].json.stdout) {\n    // Split by lines to find valid JSON\n    let lines = items[0].json.stdout.split('\\n');\n    let jsonOutput = null;\n    \n    // Look for valid JSON lines\n    for (let line of lines) {\n      try {\n        if (line.trim()) {\n          let parsed = JSON.parse(line.trim());\n          // If it's not a debug line, it's our output\n          if (!parsed.debug) {\n            jsonOutput = parsed;\n            break;\n          }\n        }\n      } catch (e) {\n        // Not valid JSON, continue\n      }\n    }\n    \n    if (jsonOutput) {\n      result = jsonOutput;\n    } else {\n      result = { \n        error: \"No valid JSON output found\", \n        rawOutput: items[0].json.stdout \n      };\n    }\n  } else {\n    result = { error: \"No stdout from script\" };\n  }\n} catch (error) {\n  result = { \n    error: `Failed to parse output: ${error.message}`,\n    rawOutput: items[0].json \n  };\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "b8fd6b9c-9f5b-4a3b-b9cd-d32b92c3e7fa",
+      "name": "Process Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Execute Simple Test",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Simple Test": {
+      "main": [
+        [
+          {
+            "node": "Process Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": ["python", "test"],
+  "pinData": {}
+} 

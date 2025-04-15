@@ -1,0 +1,16 @@
+services:
+  n8n:
+    image: n8n-based
+    restart: unless-stopped
+    environment:
+      - WEBHOOK_URL=https://n8n.basedintheory.com/
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./custom:/usr/local/n8n/custom
+    ports:
+      - 5679:5678
+
+volumes:
+  n8n_data:
+    name: n8n_data
+    external: true
