@@ -19,7 +19,17 @@ RUN apk add --no-cache \
     g++ \
     pkgconfig \
     llvm15 \
-    llvm15-dev
+    llvm15-dev \
+    # Add Chrome dependencies
+    chromium \
+    chromium-chromedriver \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    ttf-liberation
 
 # Create virtual environment
 RUN python3 -m venv /opt/venv
@@ -28,13 +38,19 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV LLVM_CONFIG="/usr/bin/llvm15-config"
 
+# Set environment variables for Chrome
+ENV CHROME_BIN=/usr/bin/chromium-browser
+ENV CHROME_PATH=/usr/lib/chromium/
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+
 # Install packages in the right order to handle dependencies
 RUN /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel && \
     /opt/venv/bin/pip install --no-cache-dir numpy && \
     /opt/venv/bin/pip install --no-cache-dir scipy && \
     /opt/venv/bin/pip install --no-cache-dir scikit-learn && \
     /opt/venv/bin/pip install --no-cache-dir soundfile audioread && \
-    /opt/venv/bin/pip install --no-cache-dir librosa
+    /opt/venv/bin/pip install --no-cache-dir librosa && \
+    /opt/venv/bin/pip install --no-cache-dir requests beautifulsoup4 selenium webdriver-manager
 
 # Create directory for custom scripts
 RUN mkdir -p /usr/local/n8n/custom

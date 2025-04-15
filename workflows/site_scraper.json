@@ -1,0 +1,143 @@
+{
+  "name": "site-scraper_v1",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Provide a URL to crawl",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "URL",
+              "placeholder": "Provide a URL to crawl...",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -20,
+        0
+      ],
+      "id": "00de9028-76f7-41cf-9e5a-e7c9658c2091",
+      "name": "On form submission",
+      "webhookId": "a84e1d92-6196-4bb8-af2e-142fce6c789c"
+    },
+    {
+      "parameters": {
+        "command": "=python3 /usr/local/n8n/custom/site_scraper.py \"{{ $json['URL'] }}\" 2>&1"
+      },
+      "id": "8dba086e-fd88-45bf-bf26-d1e94cbcf21b",
+      "name": "Execute Site Scraper",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the output and return it\nlet result;\n\ntry {\n  // Check if we have stdout\n  if (items[0].json.stdout) {\n    // Log raw output for debugging\n    console.log('Raw stdout:', items[0].json.stdout);\n    \n    // Split by lines to find valid JSON\n    let lines = items[0].json.stdout.split('\\n');\n    let jsonOutput = null;\n    \n    // Look for valid JSON lines\n    for (let line of lines) {\n      try {\n        if (line.trim()) {\n          const parsed = JSON.parse(line.trim());\n          // Skip debug messages\n          if (!parsed.debug) {\n            jsonOutput = parsed;\n            break;\n          }\n        }\n      } catch (e) {\n        // Not valid JSON, continue\n      }\n    }\n    \n    if (jsonOutput) {\n      // Log the found JSON for debugging\n      console.log('Found JSON:', JSON.stringify(jsonOutput));\n      result = jsonOutput;\n      \n      // Verify csv_file_path exists\n      if (!result.csv_file_path) {\n        console.error('csv_file_path missing in result!');\n      } else {\n        console.log('csv_file_path found:', result.csv_file_path);\n      }\n    } else {\n      result = { \n        error: \"No valid JSON output found\", \n        rawOutput: items[0].json.stdout \n      };\n    }\n  } else {\n    result = { error: \"No stdout from script\" };\n  }\n} catch (error) {\n  result = { \n    error: `Failed to parse output: ${error.message}`,\n    rawOutput: items[0].json \n  };\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "835f4b60-e4c9-4489-9c32-cacce23c2733",
+      "name": "Process Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if we have a valid CSV file path\nif (!$node[\"Process Output\"].json.csv_file_path) {\n  // Handle missing file path\n  return [{\n    json: {\n      error: \"CSV file path missing\",\n      data: $node[\"Process Output\"].json\n    }\n  }];\n}\n\n// Pass the CSV file path to the next node\nreturn [{\n  json: {\n    csv_file_path: $node[\"Process Output\"].json.csv_file_path,\n    url: $node[\"Process Output\"].json.url,\n    message: $node[\"Process Output\"].json.message\n  }\n}];"
+      },
+      "id": "cba75a87-9d54-4d67-8c19-c72e0eb7d779",
+      "name": "Validate File Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        620,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.csv_file_path }}"
+      },
+      "id": "66948b98-9d01-4ec9-9040-d3a8f8538672",
+      "name": "Read CSV File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        820,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Execute Site Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Site Scraper": {
+      "main": [
+        [
+          {
+            "node": "Process Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Output": {
+      "main": [
+        [
+          {
+            "node": "Validate File Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate File Path": {
+      "main": [
+        [
+          {
+            "node": "Read CSV File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read CSV File": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "783a1884-51bf-4b47-b2eb-ef12f26ea25c",
+  "meta": {
+    "instanceId": "ade474e6bddb626f71388b1d77bd5e6dbcf4ac4eff7b8a28388dc1727c41cd1b"
+  },
+  "id": "sFRj5zGSGXc4Qh3L",
+  "tags": []
+}

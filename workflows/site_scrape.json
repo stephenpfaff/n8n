@@ -1,0 +1,191 @@
+{
+  "name": "Site Scrape",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Website Scraper",
+        "formDescription": "Enter a URL to scrape website content and generate a CSV report of all pages.",
+        "formFields": [
+          {
+            "fieldType": "string",
+            "fieldTypeOptions": {
+              "password": false
+            },
+            "name": "URL",
+            "options": {},
+            "required": true,
+            "defaultValue": "",
+            "displayName": "Website URL",
+            "placeholder": "https://example.com",
+            "description": "Enter the full URL of the website you want to scrape"
+          }
+        ]
+      },
+      "id": "ec4d6a0f-d826-4c3d-b4dd-40eff1d6b831",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.form-trigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=python3 /usr/local/n8n/custom/site_scraper.py \"{{ $json['URL'] }}\" 2>&1",
+        "executeCommand": "{}"
+      },
+      "id": "59983c9a-f5e9-4c17-b21b-0fb9c8e4d8a7",
+      "name": "Execute Site Scraper",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the output and return it\nlet result;\n\ntry {\n  // Check if we have stdout\n  if (items[0].json.stdout) {\n    // Log raw output for debugging\n    console.log('Raw stdout:', items[0].json.stdout);\n    \n    // Extract debug messages\n    let debugMessages = [];\n    // Split by lines to find valid JSON\n    let lines = items[0].json.stdout.split('\\n');\n    let jsonOutput = null;\n    \n    // Look for valid JSON lines\n    for (let line of lines) {\n      try {\n        if (line.trim()) {\n          const parsed = JSON.parse(line.trim());\n          // Store debug messages\n          if (parsed.debug) {\n            debugMessages.push(parsed.debug);\n          } else {\n            jsonOutput = parsed;\n          }\n        }\n      } catch (e) {\n        // Not valid JSON, continue\n      }\n    }\n    \n    if (jsonOutput) {\n      // Log the found JSON for debugging\n      console.log('Found JSON:', JSON.stringify(jsonOutput));\n      result = jsonOutput;\n      \n      // Add collected debug messages to the result\n      result.debugMessages = debugMessages;\n      \n      // Verify csv_file_path exists\n      if (!result.csv_file_path) {\n        console.error('csv_file_path missing in result!');\n      } else {\n        console.log('csv_file_path found:', result.csv_file_path);\n      }\n    } else {\n      result = { \n        error: \"No valid JSON output found\", \n        rawOutput: items[0].json.stdout,\n        debugMessages: debugMessages\n      };\n    }\n  } else {\n    result = { error: \"No stdout from script\" };\n  }\n} catch (error) {\n  result = { \n    error: `Failed to parse output: ${error.message}`,\n    rawOutput: items[0].json \n  };\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "ba56f71a-cf13-404a-a7c8-c124d6993e87",
+      "name": "Process Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if we have a valid CSV file path\nif (!$node[\"Process Output\"].json.csv_file_path) {\n  // Handle missing file path\n  return [{\n    json: {\n      error: \"CSV file path missing\",\n      data: $node[\"Process Output\"].json,\n      debugMessages: $node[\"Process Output\"].json.debugMessages || []\n    }\n  }];\n}\n\n// Pass the CSV file path to the next node\nreturn [{\n  json: {\n    csv_file_path: $node[\"Process Output\"].json.csv_file_path,\n    url: $node[\"Process Output\"].json.url,\n    message: $node[\"Process Output\"].json.message,\n    debugMessages: $node[\"Process Output\"].json.debugMessages || []\n  }\n}];"
+      },
+      "id": "d8c3a49a-f1e2-4d76-b227-0a86c5debb1d",
+      "name": "Validate File Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "filePath": "={{ $json.csv_file_path }}",
+        "options": {}
+      },
+      "id": "5ef2689c-a5c2-4f2b-ac71-5f20cf6d2d19",
+      "name": "Read CSV File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Add URL and other metadata to the item\nfor (const item of items) {\n  // Get metadata from previous node\n  const metadata = $('Validate File Path').item(0).json;\n  \n  // Add metadata to binary file\n  item.json = {\n    ...item.json,\n    url: metadata.url,\n    message: metadata.message,\n    file_path: metadata.csv_file_path, // Add original file path for debugging\n    debugMessages: metadata.debugMessages || []\n  };\n  \n  // Generate a readable filename\n  if (metadata.url) {\n    const urlPart = metadata.url.replace(/^https?:\\/\\//, '').replace(/[\\/\\\\:*?\"<>|]/g, '_');\n    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);\n    \n    // Update binary data filename\n    if (item.binary) {\n      const key = Object.keys(item.binary)[0];\n      item.binary[key].fileName = `${urlPart}_scrape_${timestamp}.csv`;\n    }\n  }\n}\n\nreturn items;"
+      },
+      "id": "d6da4a5d-eff8-479c-9fbd-3c7b3cff6c21",
+      "name": "Prepare Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operationMode": "appendFile",
+        "fileName": "={{$now}}_scrape_log.txt",
+        "binary": false,
+        "options": {
+          "encoding": "utf8"
+        },
+        "content": "=URL: {{ $json.url }}\nTimestamp: {{ $now }}\nStatus: {{ $json.message }}\n\nDebug Log:\n{{ $json.debugMessages.join('\\n') }}\n\n-----------------------------------------"
+      },
+      "id": "3a5f67dc-8b03-4a31-9bc5-9c11af7d2bf3",
+      "name": "Log Progress",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 2,
+      "position": [
+        900,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Execute Site Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Site Scraper": {
+      "main": [
+        [
+          {
+            "node": "Process Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Output": {
+      "main": [
+        [
+          {
+            "node": "Validate File Path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate File Path": {
+      "main": [
+        [
+          {
+            "node": "Read CSV File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read CSV File": {
+      "main": [
+        [
+          {
+            "node": "Prepare Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": ["scraping", "website", "csv"],
+  "pinData": {}
+} 
